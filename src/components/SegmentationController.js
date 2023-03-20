@@ -1,10 +1,12 @@
 import React, { useEffect, createRef, useState, useRef } from 'react';
 import useMousePosition from '../hooks/useMousePosition';
+import { AUTH_HEADER } from '../keys/Imagga';
 
-function SegmentationController({ imageName, imageSrc, prevImageHandler, nextImageHandler, noiseLevel }) {
+function SegmentationController({ imageName, imageSrc, prevImageHandler, nextImageHandler, noiseLevel, currentClassificationCorrect, setCurrentClassificationCorrect }) {
     const imageCanvasRef = createRef();
     const segmentationCanvasRef = createRef();
     const penCanvasRef = createRef();
+    const canvasContainerRef = createRef();
 
     const [mouseCoords, handleMouseCoords] = useMousePosition();
     const [isDrawing, setIsDrawing] = useState(false);
@@ -14,23 +16,22 @@ function SegmentationController({ imageName, imageSrc, prevImageHandler, nextIma
     const [erasing, setErasing] = useState(false);
     const penCircleVisible = useRef(false);
 
+    const [currentTag, setCurrentTag] = useState(undefined);
+    const [classifyingMessage, setClassifyingMessage] = useState(undefined);
+
     useEffect(() => {
         // Clear the canvas
         imageCanvasRef.current.removeAttribute("data-caman-id");
 
         // Add the new image with noise
         window.Caman("#image-canvas", imageSrc, function () {
-            this.noise(noiseLevel).render();
-
-            // segmentationCanvasRef.current.width = this.width;
-            // segmentationCanvasRef.current.height = this.height;
-            // penCanvasRef.current.width = this.width;
-            // penCanvasRef.current.height = this.height;
-            // segmentationCanvasRef.current.width = imageCanvasRef.current.width;
-            // segmentationCanvasRef.current.height = imageCanvasRef.current.height;
-            // penCanvasRef.current.width = imageCanvasRef.current.width;
-            // penCanvasRef.current.height = imageCanvasRef.current.height;
+            // this.resize({
+            //     width: Math.ceil(window.innerWidth * .6)
+            // });
+            this.noise(noiseLevel);
+            this.render();
         });
+
         // eslint-disable-next-line
     }, [imageSrc]);
 
@@ -38,19 +39,58 @@ function SegmentationController({ imageName, imageSrc, prevImageHandler, nextIma
     // These if statements are necessary because otherwise the canvas refs would update every time an input
     // event is received, causing the refs to constantly change and causing the segmenting to not work properly.
     useEffect(() => {
-        if (segmentationCanvasRef.current.width !== imageCanvasRef.current.width) 
+        if (segmentationCanvasRef.current.width !== imageCanvasRef.current.width)
             segmentationCanvasRef.current.width = imageCanvasRef.current.width;
-        
+
         if (segmentationCanvasRef.current.height !== imageCanvasRef.current.height)
             segmentationCanvasRef.current.height = imageCanvasRef.current.height;
-        
+
         if (penCanvasRef.current.width !== imageCanvasRef.current.width)
             penCanvasRef.current.width = imageCanvasRef.current.width;
-        
-        if (penCanvasRef.current.height !== imageCanvasRef.current.height)    
+
+        if (penCanvasRef.current.height !== imageCanvasRef.current.height)
             penCanvasRef.current.height = imageCanvasRef.current.height;
 
     }, [segmentationCanvasRef, penCanvasRef, imageCanvasRef]);
+
+    function handleNextImage() {
+        if (currentClassificationCorrect !== undefined) {
+            setCurrentTag(undefined);
+            setClassifyingMessage(undefined);
+            nextImageHandler();
+        }
+    }
+
+    function handleSetCurrentClassificationCorrect(event) {
+        setCurrentClassificationCorrect(parseInt(event.target.value));
+    }
+
+    function handleClassify() {
+        // Use Imagga to classify image
+        const auth = AUTH_HEADER;
+
+        setClassifyingMessage(" Please wait...");
+
+        const formData = new FormData();
+        formData.append("image_base64", imageCanvasRef.current.toDataURL().split(';base64,')[1]);
+
+        fetch("https://api.imagga.com/v2/tags?limit=1", {
+            method: "POST",
+            headers: new Headers({
+                "Authorization": auth
+            }),
+            body: formData
+        }).then(tagResponse => tagResponse.json())
+            .then(tagData => {
+                if (tagData.status.type !== "success") {
+                    setClassifyingMessage("An error occurred. Please go to the next image.");
+                    setCurrentClassificationCorrect(0);
+                    return;
+                }
+                setCurrentTag(tagData.result.tags[0].tag.en);
+                setClassifyingMessage(undefined); 
+            });
+    }
 
     function handleSaveImage() {
         // We need to replace the parts the user drew on with white, and then black everywhere else
@@ -186,9 +226,26 @@ function SegmentationController({ imageName, imageSrc, prevImageHandler, nextIma
         <div>
             <h3>{imageName}</h3>
             <p>Please draw over the main object of the image in red.</p>
+            <p>Also decide if the provided classification is correct.</p>
             <div>
-                <button type="button" onClick={prevImageHandler}>Prev</button>
-                <button type="button" onClick={nextImageHandler}>Next</button>
+                <div>Is this label correct: 
+                    {currentTag ? (" " + currentTag) : 
+                        (classifyingMessage ||
+                            <button type="button" onClick={handleClassify}>Run classification</button>
+                        )}
+                </div>
+                <input type="radio" id="wrong" name="is-correct" value="0"
+                    onChange={e => handleSetCurrentClassificationCorrect(e)}
+                    checked={currentClassificationCorrect === 0} />
+                <label htmlFor="wrong">Wrong</label>
+                <input type="radio" id="correct" name="is-correct" value="1"
+                    onChange={e => handleSetCurrentClassificationCorrect(e)}
+                    checked={currentClassificationCorrect === 1} />
+                <label htmlFor="correct">Correct</label>
+            </div>
+            <div>
+                {/* <button type="button" onClick={prevImageHandler}>Prev</button> */}
+                <button type="button" onClick={handleNextImage} disabled={currentClassificationCorrect === undefined}>Next</button>
                 <br />
                 <button type="button" onClick={handleSaveImage}>Save</button>
             </div>
@@ -206,7 +263,9 @@ function SegmentationController({ imageName, imageSrc, prevImageHandler, nextIma
             </div>
 
             {/* Canvases */}
-            <div style={{ position: "relative", top: "30px", margin: "auto", minHeight: "fit-content", marginBottom: "50px" }}>
+            <div id="canvas-container"
+                ref={canvasContainerRef}
+                style={{ position: "relative", top: "30px", margin: "auto", minHeight: "fit-content", marginBottom: "50px" }}>
                 {/* Canvas with image itself */}
                 <canvas id="image-canvas"
                     ref={imageCanvasRef}

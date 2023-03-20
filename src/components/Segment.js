@@ -11,6 +11,7 @@ function Segment() {
     const [noiseLevel, setNoiseLevel] = useState(0);
     const [imageIndex, setImageIndex] = useState(0);
     const [isSegmenting, setIsSegmenting] = useState(true);
+    const [classifications, setClassifications] = useState([]);
 
     // When the files or image changes
     useEffect(() => {
@@ -48,6 +49,12 @@ function Segment() {
         setIsSegmenting(true);
     }
 
+    function setCurrentClassificationCorrect(correct) {
+        const c = [...classifications];
+        c[imageIndex] = correct;
+        setClassifications(c);
+    }
+
     if (isSegmenting) {
         return (
             <div>
@@ -59,7 +66,9 @@ function Segment() {
                                 imageSrc={imageSrc}
                                 prevImageHandler={prevImage}
                                 nextImageHandler={nextImage}
-                                noiseLevel={noiseLevel} />
+                                noiseLevel={noiseLevel} 
+                                currentClassificationCorrect={classifications[imageIndex]}
+                                setCurrentClassificationCorrect={setCurrentClassificationCorrect}/>
                         </div> :
                         <div>Loading...</div>
                     ) :
@@ -70,7 +79,7 @@ function Segment() {
         );
     }
     else {
-        return <ContinueOrEnd handleReturnToSegmentation={returnToSegmentation} />
+        return <ContinueOrEnd handleReturnToSegmentation={returnToSegmentation} classifications={classifications}/>
     }
 }
 
