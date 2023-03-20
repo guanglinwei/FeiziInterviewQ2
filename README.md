@@ -1,10 +1,13 @@
 # Manual Image Segmentation for Feizi Lab Interview 2023
-TODO: 
-[x] put image on canvas
-[ ] allow user to segment it by drawing over it
-[ ] save the segmentation mask (image.js, fromCanvas())
-[ ] gaussianFilter() to blur 
-[x] or use Caman http://camanjs.com/guides/#BasicUsage
-[ ] have the blur start at 0 and increase
-[ ] have some callback after done with all images to increase blur level
-[ ] invert image so that highlighted part is white, rest is black
+This is a website that asks the user to upload some number of images.
+The images are displayed one by one, and the user is asked to segment the main object in the image.
+The segmentation mask for any image can be saved.
+After all images are segmented, the user can choose to add noise to the image and repeat the process.
+
+## Instructions
+- Clone this repo
+- Start the development server
+```
+npm i
+npm run start
+```
