@@ -185,6 +185,7 @@ function SegmentationController({ imageName, imageSrc, prevImageHandler, nextIma
     return (
         <div>
             <h3>{imageName}</h3>
+            <p>Please draw over the main object of the image in red.</p>
             <div>
                 <button type="button" onClick={prevImageHandler}>Prev</button>
                 <button type="button" onClick={nextImageHandler}>Next</button>
